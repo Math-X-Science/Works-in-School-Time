@@ -1,0 +1,9 @@
+key.yml
+opus-mt-zh-en/
+test-translation/
+__pycache__/
+word_dict/
+cleaned/
+.ipynb_checkpoints/
+*.7z
+
