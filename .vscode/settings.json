@@ -1,0 +1,10 @@
+{
+  "editor.formatOnSave": true,
+  "python.formatting.provider": "black",
+  "python.sortImports.path": "isort",
+  "python.linting.pylintEnabled": true,
+  "python.linting.enabled": true,
+  "C_Cpp.clang_format_style": "file",
+  "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
+}
