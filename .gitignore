@@ -6,4 +6,8 @@ word_dict/
 cleaned/
 .ipynb_checkpoints/
 *.7z
+*.png
+*.jpg
+data/
+dataset/
 
