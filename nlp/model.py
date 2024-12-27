@@ -22,17 +22,19 @@ class PositionalEncoding(nn.Module):
         super(PositionalEncoding, self).__init__()
 
         pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0., max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0., d_model, 2) * -(math.log(10000.0) / d_model))
+        position = torch.arange(0.0, max_len).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0.0, d_model, 2) * -(math.log(10000.0) / d_model)
+        )
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
 
         pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x):
-        return x + Variable(self.pe[:, :x.size(1)], requires_grad=False)
+        return x + Variable(self.pe[:, : x.size(1)], requires_grad=False)
 
 
 def attention(query, key, value, mask=None):
@@ -61,8 +63,10 @@ class MultiHeadedAttention(nn.Module):
         if mask is not None:
             mask = mask.unsqueeze(1)
         nbatches = query.size(0)
-        query, key, value = [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-                             for l, x in zip(self.linears, (query, key, value))]
+        query, key, value = [
+            linear_layer(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+            for linear_layer, x in zip(self.linears, (query, key, value))
+        ]
         x, self.attn = attention(query, key, value, mask=mask)
         x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
@@ -79,7 +83,7 @@ class LayerNorm(nn.Module):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
 
-        return self.a_2 * (x - mean) / torch.sqrt(std ** 2 + self.eps) + self.b_2
+        return self.a_2 * (x - mean) / torch.sqrt(std**2 + self.eps) + self.b_2
 
 
 class SublayerConnection(nn.Module):
@@ -194,4 +198,5 @@ def init_model(src_vocab, tgt_vocab, N=6, d_model=512, d_ff=2048, h=8):
         Decoder(DecoderLayer(d_model, c(attn), c(attn), c(ff)), N),
         nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
         nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
-        Generator(d_model, tgt_vocab))
+        Generator(d_model, tgt_vocab),
+    )
