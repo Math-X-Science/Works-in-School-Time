@@ -1,5 +1,8 @@
 # 在做什么？
 
+代码所在:<br>
+[Math-X-Science/school-homework](https://github.com/Math-X-Science/school-homework)<br>
+
 我在尝试利用`deeplx`翻译英文小说，形成翻译对，然后用这些翻译对微调和从 0 训练 Transformer 模型。<br>
 
 感谢这些仓库:<br>
@@ -43,8 +46,81 @@ english-novel-complete-works
 链接: https://pan.baidu.com/s/1eh4D0at0ONT7Ct89V0Mw8g?pwd=1tt3 提取码: 1tt3
 ```
 
-## 我突然想起来。
+## 分词：
 
-我得先去把计算机视觉的那个代码大致写一下。那个截至更早一些。<br>
+之前训练大模型的时候比较方便，tokenizer 和 embedding 都是由模型开发的人提供的，只需要做好指令微调的数据集喂进去，然后等就行。<br>
 
-先溜了。<br>
+但如果自己训练自定义的模型，那么对于 embedding 和 tokenizing 都是自己要考虑的。<br>
+
+因为在大样本集上面的分词和 embedding 通常要很久，所以先在 demo 上面演示.<br>
+
+这里的一个点是：是否要把中英文的 indices 建立在一个词典下？<br>
+
+我选择把 indices 分别建立在两个词典下，因为我的用例中完全不存在："我喜欢 Python" -> "I like Python" 这样的情况。我翻译的是小说。我更希望在 Embedding 的时候两个字典存在于不同的空间，然后让模型自己学着映射，而不是一开始就存在一些关联。<br>
+
+当然如果字典本身比较小，偏日常用语，且里面也有不少：“这个 to_tensor...”这样的混合用例，那么建立在一个空间应该是不错的选择，至少经常出现在一起的组合在 embedding 之初就有联系。<br>
+
+这里是一些 token 和 indices:<br>
+
+```shell
+tokens     ([这是, 果酱, ！], [This, is, jam, !])
+indices    ([49, 310, 7], [7, 308, 9, 10])
+Name: 20, dtype: object
+```
+
+```shell
+tokens     ([两个, 女孩, 拉住, 了, 对方, ，, 一个, 扮演, 绅士, ，, 另一个, ...
+indices    ([98, 81, 103, 14, 101, 3, 31, 104, 105, 3, 83...
+Name: 3, dtype: object
+```
+
+![image-20250106213904048](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/01/202501062322450.png)
+
+demo 上的中英文非重复分词长度。<br>
+
+如果直接用 BERT 做 Embedding 的话，通常不需要考虑这么多，直接少走弯路。后面也会在第一个模型训练完后改用 BERT 进行一个对比。<br>
+
+## Embedding
+
+这里因为之后要和预训练的 BERT 做对比，所以 Embedding 相当水，只是简单投射了一下。
+
+```python
+class Embeddings(nn.Module):
+    def __init__(self, d_model, vocab):
+        super(Embeddings, self).__init__()
+        self.lut = nn.Embedding(vocab, d_model)
+        self.d_model = d_model
+
+    def forward(self, x):
+        return self.lut(x) * math.sqrt(self.d_model)
+```
+
+在初始化的时候，我们的 embedding 是随机初始化的，不过我们把 indices 分开了。相当于到时候会产生两个 Embedding 空间，一个是中文的一个是英文的。
+
+它会随着我们的训练而更新，像是模型的一部分，优点是可以更贴合任务进行参数调整。
+
+缺点就是，可调参数太多对训练的难易度是很大挑战。这些缺点可以用微调预训练模型来进行一个弥补。
+
+![image-20250106224552556](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/01/202501062322412.png)
+
+似乎数据集太小，二十秒左右就 loss<0.4 了，按理来说 NLP 的任务 Seq2Seq Loss 不应该将太低，这说明模型把所有数据都记住了，而且还没怎么更新到 embedding。于是下一步是，扩大数据集。
+
+### 一个彩蛋：
+
+前面提到我的 demo 相当小，然后在可视化和测试的时候就出现了很有意思的点。因为我的 embedding 是自定义的，而里面没有 test 这个词。于是乎它就映射到了果酱:（有点幽默）
+
+![image-20250106230908256](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/01/202501062322954.png)
+
+它来源于训练集：<br>
+
+```shell
+tokens     ([这是, 果酱, ！], [This, is, jam, !])
+indices    ([49, 310, 7], [7, 308, 9, 10])
+Name: 20, dtype: object
+```
+
+this is a jam, 这是一个测试。<br>
+
+到目前为止模型在预期的范围内工作。下一步就是扩大数据集然后躺平等训练了。<br>
+
+## 扩大我们的训练集并且给我们的实验画上句号。
