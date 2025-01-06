@@ -173,10 +173,32 @@ class Transformer(nn.Module):
         self.generator = generator
 
     def encode(self, src, src_mask):
+        # 编码源语言输入
         return self.encoder(self.src_embed(src), src_mask)
 
     def decode(self, memory, src_mask, tgt, tgt_mask):
+        # 解码目标语言输入
         return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
+
+    def forward(self, src, tgt, src_mask, tgt_mask):
+        """
+        前向传播：
+        1. 对源语言进行编码，生成 `memory`
+        2. 使用编码后的 `memory` 和目标语言输入进行解码
+        3. 使用生成器将解码结果映射到目标词汇表分布
+
+        参数：
+        - src: 源语言输入 (batch_size, src_seq_len)
+        - tgt: 目标语言输入 (batch_size, tgt_seq_len)
+        - src_mask: 源语言掩码
+        - tgt_mask: 目标语言掩码
+
+        返回：
+        - 输出：目标词汇表的分布 (batch_size, tgt_seq_len, tgt_vocab_size)
+        """
+        memory = self.encode(src, src_mask)  # 编码阶段
+        output = self.decode(memory, src_mask, tgt, tgt_mask)  # 解码阶段
+        return self.generator(output)  # 生成输出
 
 
 class Generator(nn.Module):
