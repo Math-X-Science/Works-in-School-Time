@@ -66,9 +66,6 @@ english-novel-complete-works
 tokens     ([这是, 果酱, ！], [This, is, jam, !])
 indices    ([49, 310, 7], [7, 308, 9, 10])
 Name: 20, dtype: object
-```
-
-```shell
 tokens     ([两个, 女孩, 拉住, 了, 对方, ，, 一个, 扮演, 绅士, ，, 另一个, ...
 indices    ([98, 81, 103, 14, 101, 3, 31, 104, 105, 3, 83...
 Name: 3, dtype: object
@@ -101,7 +98,11 @@ class Embeddings(nn.Module):
 
 缺点就是，可调参数太多对训练的难易度是很大挑战。这些缺点可以用微调预训练模型来进行一个弥补。
 
-![image-20250106224552556](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/01/202501062322412.png)
+![image-20250107082628340](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/01/202501070826769.png)
+
+![image-20250107082722790](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/01/202501070827340.png)
+
+> 这里有一点值得注意的，就是对于embedding lr应该比模型参数大一个数量级，不然会出现更新不动的情况。
 
 似乎数据集太小，二十秒左右就 loss<0.4 了，按理来说 NLP 的任务 Seq2Seq Loss 不应该将太低，这说明模型把所有数据都记住了，而且还没怎么更新到 embedding。于是下一步是，扩大数据集。
 
@@ -124,3 +125,53 @@ this is a jam, 这是一个测试。<br>
 到目前为止模型在预期的范围内工作。下一步就是扩大数据集然后躺平等训练了。<br>
 
 ## 扩大我们的训练集并且给我们的实验画上句号。
+
+碰到的一些头疼的 bug。<br>
+
+### 分词爆内存
+
+在做分词的时候，我收集到的所有数据集合并给 spacy 分词的时候，提示超出 spacy 的 maxlen，然后我调高 maxlen，就反复干闪退我的 vscode。<br>
+
+以为在处理的时候，它总是试图先把 maxlen 所有的内容装到内存里，而我的内存不够。经过测试一个人的全集大概分词要 3 分钟，如果全部分词大概要一个小时左右，这个还得考虑后面对字典的一个去重和合并，因为试错成本太高，于是我直接只在一个人的全集上面尝试。<br>
+
+### 模型过拟合。
+
+在最初只在 15 本的测试里，它总是试图匹配训练集里面的原句，而且 LOSS 降得过于低了。对没见过的语句表现非常差。<br>
+
+这里我扩大了数据集并用了预训练的 BERT 模型。<br>
+
+### 模型结果评估。
+
+训练集里面的：
+
+![alt text](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/01/202501070940399.png)
+
+长句表现:<br>
+
+```shell
+英文原句：“You boys get along and leave us alone,” Mr. Borrow said. He was carving away steadily, his infirm old hands shaking a little between strokes.”
+中文翻译："博洛先生说："你们这些孩子快走吧，别来烦我们。他稳步地雕刻着，那双虚弱的老手在两笔之间微微颤抖"。
+```
+
+感觉翻译的相当好的一段。<br>
+
+和gpt的对比：<br>
+
+![alt text](https://fastly.jsdelivr.net/gh/MrXnneHang/blog_img/BlogHosting/img/25/01/202501070939382.png)
+
+
+随机生成段落测试：
+
+```shell
+英文原句：The sun dipped below the horizon, painting the sky in vibrant hues of orange and purple. The waves crashed against the rocks, a rhythmic sound that filled the air. Sarah stood at the edge of the cliff, her hair blowing in the breeze, her thoughts drifting to distant memories. She clutched the letter tightly in her hand, unsure if she should let it go or keep it as a reminder of what once was.
+中文翻译：太阳斜射到地平线以下，给天空上了橙色和紫色的鲜艳的颜色。海浪击打着石头，有节奏的声音在空气中。萨拉站在悬崖边，头发被风吹起，她的思绪飘向遥远的回忆。她紧紧地攥着手中的信，不知道
+```
+
+emmmm,当段落太长的时候会出现截断，推测是我的maxlen设置太小，以及一个中文可能被拆分成多个token导致比英文token长。<br>
+
+短段落中表现正常。<br>
+
+结束。<br>
+
+实际上还可以用Qwen进行一个指令微调，以后有空可以试试。<br>
+
